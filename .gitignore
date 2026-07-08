@@ -1,0 +1,8 @@
+.DS_Store
+Thumbs.db
+
+# Local tools and temporary files
+.tools/
+*.tmp
+*.bak
+
