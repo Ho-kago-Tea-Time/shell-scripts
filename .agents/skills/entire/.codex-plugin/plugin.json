@@ -1,0 +1,32 @@
+{
+  "name": "entire",
+  "version": "0.7.0",
+  "description": "Cross-agent skills and commands powered by Entire.",
+  "author": {
+    "name": "Entire Inc",
+    "url": "https://github.com/entireio"
+  },
+  "homepage": "https://github.com/entireio/skills",
+  "repository": "https://github.com/entireio/skills",
+  "license": "MIT",
+  "keywords": [
+    "entire",
+    "session-handoff",
+    "what-happened",
+    "handoff",
+    "agent-workflows",
+    "skills"
+  ],
+  "skills": "./skills/",
+  "interface": {
+    "displayName": "Entire",
+    "shortDescription": "Continue work and inspect code history with Entire",
+    "developerName": "Entire Inc",
+    "category": "Development",
+    "capabilities": [
+      "Interactive",
+      "Write"
+    ],
+    "websiteURL": "https://github.com/entireio/skills"
+  }
+}

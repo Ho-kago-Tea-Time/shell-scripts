@@ -1,0 +1,19 @@
+{
+  "name": "entire",
+  "version": "0.7.0",
+  "description": "Cross-agent skills and commands powered by Entire",
+  "author": {
+    "name": "Entire Inc"
+  },
+  "homepage": "https://github.com/entireio/skills",
+  "repository": "https://github.com/entireio/skills",
+  "license": "MIT",
+  "keywords": [
+    "entire",
+    "skills",
+    "handoff",
+    "what-happened",
+    "agent-workflows",
+    "plugins"
+  ]
+}
