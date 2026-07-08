@@ -4,6 +4,8 @@
 official package repositories. Docker Compose is installed by default as the
 `docker-compose-plugin` package, and can be disabled with `--without-compose`.
 
+Chinese version: [README.zh-CN.md](./README.zh-CN.md)
+
 See [DEVELOPMENT.md](./DEVELOPMENT.md) for design notes, adapter behavior, and
 the development FAQ behind this script.
 

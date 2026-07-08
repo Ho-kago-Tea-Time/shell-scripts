@@ -1,5 +1,7 @@
 # Docker Manager 开发手册
 
+中文版本: [DEVELOPMENT.zh-CN.md](./DEVELOPMENT.zh-CN.md)
+
 这份文档记录 `docker-manager.sh` 开发过程中确认过的设计问题、边界情况和常见疑问。`README.md` 偏用户使用说明，本文件偏维护和二次开发说明。
 
 ## 官方文档依据
@@ -355,4 +357,3 @@ chmod +x docker-manager.sh
 ./docker-manager.sh install --dry-run
 sudo ./docker-manager.sh install --add-current-user
 ```
-

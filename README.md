@@ -2,6 +2,8 @@
 
 Reusable shell scripts and system automation helpers.
 
+Chinese version: [README.zh-CN.md](./README.zh-CN.md)
+
 ## Scripts
 
 - [docker/docker-manager.sh](./docker/docker-manager.sh): install and uninstall Docker Engine, Docker Buildx, and Docker Compose plugin on Ubuntu today, with adapter-based room for other mainstream Linux distributions.
@@ -12,7 +14,9 @@ Reusable shell scripts and system automation helpers.
 docker/
   docker-manager.sh
   README.md
+  README.zh-CN.md
   DEVELOPMENT.md
+  DEVELOPMENT.zh-CN.md
 ```
 
 ## Development
@@ -24,4 +28,3 @@ Before committing shell scripts, run:
 ```bash
 bash -n docker/docker-manager.sh
 ```
-

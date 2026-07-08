@@ -1,0 +1,29 @@
+# Shell Scripts
+
+这个仓库用于存放可复用的 Shell 脚本和系统自动化辅助工具。
+
+## 脚本
+
+- [docker/docker-manager.sh](./docker/docker-manager.sh): 安装和卸载 Docker Engine、Docker Buildx 与 Docker Compose plugin。当前优先支持 Ubuntu，同时通过 adapter 结构预留了兼容其他主流 Linux 发行版的空间。
+
+## 目录结构
+
+```text
+docker/
+  docker-manager.sh
+  README.md
+  README.zh-CN.md
+  DEVELOPMENT.md
+  DEVELOPMENT.zh-CN.md
+```
+
+## 开发
+
+这个仓库已经初始化为 Git 仓库，并计划配合 Entire 捕获本地 agent session 上下文。不要提交本地生成的设置文件或临时文件。
+
+提交 Shell 脚本前，先运行：
+
+```bash
+bash -n docker/docker-manager.sh
+```
+
