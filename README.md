@@ -6,20 +6,21 @@ Chinese version: [README.zh-CN.md](./README.zh-CN.md)
 
 ## Scripts
 
-- [docker/docker-manager.sh](./docker/docker-manager.sh): install and uninstall Docker Engine, Docker Buildx, and Docker Compose plugin on Ubuntu today, with adapter-based room for other mainstream Linux distributions.
-- [windows/openssh/Configure-RestrictedOpenSsh.ps1](./windows/openssh/Configure-RestrictedOpenSsh.ps1): install and configure Windows OpenSSH Server with an administrator public key and a restricted firewall allowlist.
+- [docker/linux/docker-manager.sh](./docker/linux/docker-manager.sh): install and uninstall Docker Engine, Docker Buildx, and Docker Compose plugin on Ubuntu today, with adapter-based room for other mainstream Linux distributions.
+- [openssh/windows/Configure-RestrictedOpenSsh.ps1](./openssh/windows/Configure-RestrictedOpenSsh.ps1): install and configure Windows OpenSSH Server with an administrator public key and a restricted firewall allowlist.
 
 ## Layout
 
 ```text
 docker/
-  docker-manager.sh
-  README.md
-  README.zh-CN.md
-  DEVELOPMENT.md
-  DEVELOPMENT.zh-CN.md
-windows/
-  openssh/
+  linux/
+    docker-manager.sh
+    README.md
+    README.zh-CN.md
+    DEVELOPMENT.md
+    DEVELOPMENT.zh-CN.md
+openssh/
+  windows/
     OpenSshServerTools.psm1
     Configure-RestrictedOpenSsh.ps1
     README.md
@@ -33,5 +34,5 @@ This repository is configured for Git and is intended to use Entire for local ag
 Before committing shell scripts, run:
 
 ```bash
-bash -n docker/docker-manager.sh
+bash -n docker/linux/docker-manager.sh
 ```
