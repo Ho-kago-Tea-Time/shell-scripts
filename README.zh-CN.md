@@ -5,6 +5,7 @@
 ## 脚本
 
 - [docker/docker-manager.sh](./docker/docker-manager.sh): 安装和卸载 Docker Engine、Docker Buildx 与 Docker Compose plugin。当前优先支持 Ubuntu，同时通过 adapter 结构预留了兼容其他主流 Linux 发行版的空间。
+- [windows/openssh/Configure-RestrictedOpenSsh.ps1](./windows/openssh/Configure-RestrictedOpenSsh.ps1): 安装并配置 Windows OpenSSH Server、管理员公钥及限制来源的防火墙白名单。
 
 ## 目录结构
 
@@ -15,6 +16,12 @@ docker/
   README.zh-CN.md
   DEVELOPMENT.md
   DEVELOPMENT.zh-CN.md
+windows/
+  openssh/
+    OpenSshServerTools.psm1
+    Configure-RestrictedOpenSsh.ps1
+    README.md
+    README.zh-CN.md
 ```
 
 ## 开发
@@ -26,4 +33,3 @@ docker/
 ```bash
 bash -n docker/docker-manager.sh
 ```
-
