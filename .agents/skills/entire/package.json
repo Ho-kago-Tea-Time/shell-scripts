@@ -1,6 +1,0 @@
-{
-  "name": "skills",
-  "version": "0.7.0",
-  "type": "module",
-  "main": ".opencode/plugins/entire.js"
-}
