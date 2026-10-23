@@ -1,0 +1,5 @@
+#!/usr/bin/env bash
+set -euo pipefail
+[[ "$*" == "auth token --hostname $MOCK_GH_HOST --user demo" ]] || exit 95
+printf '%s\n' "$*" >> "$MOCK_STATE/gh-requests"
+printf 'test-secret\n'

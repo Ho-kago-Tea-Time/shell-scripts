@@ -1,0 +1,41 @@
+#!/usr/bin/env bash
+# Offline curl double. No real credentials, network, or user SSH files are used.
+set -euo pipefail
+output= method= payload= url=
+[[ "$1" == --disable && "$*" == *'--max-redirs 0'* && "$*" == *"--proto =https"* ]] || exit 89
+for argument in "$@"; do [[ "$argument" != *test-secret* ]] || exit 90; done
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --output) output=$2; shift 2 ;;
+    --request) method=$2; shift 2 ;;
+    --data-binary) payload=$2; shift 2 ;;
+    https://*) url=$1; shift ;;
+    *) shift ;;
+  esac
+done
+auth=$(cat)
+[[ "$auth" == 'header = "Authorization: Bearer test-secret"' ]] || exit 91
+[[ "$url" == "$MOCK_API_URL"/* ]] || exit 92
+endpoint=${url#"$MOCK_API_URL"}
+printf '%s %s\n' "$method" "$endpoint" >> "$MOCK_STATE/requests"
+status=200
+case "$method:$endpoint" in
+  GET:/user)
+    jq -n --arg account "${MOCK_ACCOUNT:-demo}" '{login:$account,username:$account}' > "$output" ;;
+  GET:/user/keys\?*)
+    if [[ "${MOCK_FAIL_LIST:-0}" == 1 ]]; then printf '{}' > "$output"; status=403
+    elif [[ "${MOCK_PAGINATE:-0}" == 1 && "$endpoint" == *page=1 ]]; then
+      jq -n '[range(100) | {key:("ssh-ed25519 FAKE" + tostring)}]' > "$output"
+    elif [[ -f "$MOCK_STATE/keys.json" ]]; then cp "$MOCK_STATE/keys.json" "$output"
+    else printf '[]' > "$output"; fi ;;
+  POST:/user/keys)
+    printf '%s' "$payload" > "$MOCK_STATE/upload.json"
+    if [[ "${MOCK_FAIL_UPLOAD:-0}" == 1 ]]; then printf '{}' > "$output"; status=422
+    else
+      jq '. + {id:123}' "$MOCK_STATE/upload.json" > "$output"
+      jq '[. + {id:123}]' "$MOCK_STATE/upload.json" > "$MOCK_STATE/keys.json"
+      status=201
+    fi ;;
+  *) exit 93 ;;
+esac
+printf '%s' "$status"

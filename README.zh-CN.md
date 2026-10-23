@@ -6,10 +6,17 @@
 
 - [docker/linux/docker-manager.sh](./docker/linux/docker-manager.sh): 安装和卸载 Docker Engine、Docker Buildx 与 Docker Compose plugin。当前优先支持 Ubuntu，同时通过 adapter 结构预留了兼容其他主流 Linux 发行版的空间。
 - [openssh/windows/Configure-RestrictedOpenSsh.ps1](./openssh/windows/Configure-RestrictedOpenSsh.ps1): 安装并配置 Windows OpenSSH Server、管理员公钥及限制来源的防火墙白名单。
+- [git/](./git/README.zh-CN.md)：生成或复用 SSH 密钥，并添加到 GitHub、GitLab 官方站或自建实例；提供 Windows 和 macOS/Linux 入口，可选配置 SSH 别名。
 
 ## 目录结构
 
 ```text
+git/
+  windows/Setup-GitSsh.ps1
+  unix/setup-git-ssh.sh
+  tests/
+  README.md
+  README.zh-CN.md
 docker/
   linux/
     docker-manager.sh
@@ -33,4 +40,5 @@ openssh/
 
 ```bash
 bash -n docker/linux/docker-manager.sh
+bash -n git/unix/setup-git-ssh.sh
 ```
