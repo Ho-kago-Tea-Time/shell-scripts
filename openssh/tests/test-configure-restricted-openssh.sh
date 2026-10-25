@@ -17,6 +17,12 @@ passed=0
 ok() { passed=$((passed + 1)); printf 'PASS: %s\n' "$*"; }
 fail() { printf 'FAIL: %s\n' "$*" >&2; exit 1; }
 expect_failure() { if ("$@") > "$root/error" 2>&1; then fail "Expected failure: $*"; fi; }
+expect_error() {
+    local expected=$1
+    shift
+    expect_failure "$@"
+    grep -Fq -- "$expected" "$root/error" || fail "Missing diagnostic: $expected"
+}
 
 for value in 192.0.2.1 0.0.0.0 255.255.255.255 2001:db8::10 ::1 :: 2001:db8:0:0:0:0:0:1; do
     validate_address "$value" 0 >/dev/null || fail "Valid address: $value"
@@ -75,10 +81,44 @@ main "$@"
 PREVIEW
 bash "$root/preview.sh" "$script" --user demo --local-address 192.0.2.10 --remote-address 192.0.2.1 --public-key-file "$root/key.pub" --dry-run > "$root/preview.out"
 grep -q 'Platform: Darwin' "$root/preview.out" || fail 'macOS preview'
-expect_failure bash "$root/preview.sh" "$script" --user demo --local-address 192.0.2.10 --remote-address 192.0.2.1 --public-key-file "$root/key" --dry-run
+expect_error "A private key was supplied: $root/key" bash "$root/preview.sh" "$script" --user demo --local-address 192.0.2.10 --remote-address 192.0.2.1 --public-key-file "$root/key" --dry-run
+if grep -Fq -- '-----BEGIN OPENSSH PRIVATE KEY-----' "$root/error"; then fail 'Diagnostic exposed private key contents'; fi
 cat "$root/key.pub" "$root/key.pub" > "$root/multiple.pub"
-expect_failure bash "$root/preview.sh" "$script" --user demo --local-address 192.0.2.10 --remote-address 192.0.2.1 --public-key-file "$root/multiple.pub" --dry-run
+expect_error "Public key file contains multiple non-empty lines: $root/multiple.pub" bash "$root/preview.sh" "$script" --user demo --local-address 192.0.2.10 --remote-address 192.0.2.1 --public-key-file "$root/multiple.pub" --dry-run
+printf ' \r\n\t\r\n' > "$root/empty.pub"
+expect_error "Public key file is empty or contains only whitespace: $root/empty.pub" bash "$root/preview.sh" "$script" --user demo --local-address 192.0.2.10 --remote-address 192.0.2.1 --public-key-file "$root/empty.pub" --dry-run
+printf 'restrict %s\n' "$public_key" > "$root/options.pub"
+expect_error "Public key file contains authorized_keys options: $root/options.pub" bash "$root/preview.sh" "$script" --user demo --local-address 192.0.2.10 --remote-address 192.0.2.1 --public-key-file "$root/options.pub" --dry-run
+printf '\r\n%s\r\n\r\n' "$public_key" > "$root/crlf.pub"
+bash "$root/preview.sh" "$script" --user demo --local-address 192.0.2.10 --remote-address 192.0.2.1 --public-key-file "$root/crlf.pub" --dry-run > "$root/preview.out"
 ok 'macOS dry run avoids system changes; private keys and multiple key lines are rejected'
+
+expect_error 'Missing required --user.' main --dry-run
+expect_error '--user cannot be root.' main --user root --dry-run
+expect_error 'Invalid --user format: 123demo' main --user 123demo --dry-run
+ok 'Missing, root, and malformed login accounts have distinct diagnostics'
+
+acquire_lock "$root/config.lock"
+expect_error "SSH configuration lock path already exists: $root/config.lock" acquire_lock "$root/config.lock"
+expect_error "Cannot create SSH configuration lock: $root/missing-parent/config.lock" acquire_lock "$root/missing-parent/config.lock"
+ok 'Lock creation errors do not falsely imply another running instance'
+
+(
+    # Stub only the policy query, so the actual checks and connection context run.
+    /usr/sbin/sshd() { printf '%s\n' "$mock_policy"; }
+    login_user=demo
+    local_addresses=(192.0.2.10)
+    remote_addresses=(192.0.2.1)
+    authorized_keys=/home/demo/.ssh/authorized_keys
+    mock_policy=$'pubkeyauthentication no\nauthorizedkeysfile .ssh/authorized_keys'
+    expect_error 'PubkeyAuthentication=no' verify_effective_config "$root/config"
+    grep -Fq 'user=demo, source=192.0.2.1, destination=192.0.2.10' "$root/error" || fail 'Policy error lost connection context'
+    mock_policy=$'pubkeyauthentication yes\nauthorizedkeysfile /custom/keys'
+    expect_error 'actual: /custom/keys; expected:' verify_effective_config "$root/config"
+    mock_policy=$'pubkeyauthentication yes\nauthorizedkeysfile .ssh/authorized_keys\ndenyusers *'
+    expect_error 'SSH policy denies the supplied connection (user=demo, source=192.0.2.1, destination=192.0.2.10' verify_effective_config "$root/config"
+)
+ok 'Policy conflict diagnostics identify the connection and effective settings'
 
 # A fresh Mac must generate host keys before raw sshd validation, even though
 # the system Remote Login launch wrapper has never generated them yet.
@@ -132,12 +172,18 @@ remote_addresses=(192.0.2.1 198.51.100.0/24 2001:db8:1::/64)
     [[ "$(run_as_target_user id -u)" == "$user_id" ]] || die 'User-key commands retained the wrong uid.'
     validate_sshd_config() { [[ "${MOCK_INVALID_CONFIG:-0}" != 1 ]]; }
     verify_effective_config() { :; }
-    systemctl() { :; }
+    systemctl() { [[ "$1" != "${MOCK_SERVICE_STEP:-}" ]]; }
+    eval "$(declare -f activate_server | sed '1s/activate_server/original_activate_server/')"
     activate_server() {
         if [[ "${MOCK_ROLLBACK_LINK:-0}" == 1 ]]; then
             rm -f "$authorized_keys"
             ln -s "$fixture/outside" "$authorized_keys"
             return 1
+        fi
+        if [[ -n "${MOCK_SERVICE_STEP:-}" ]]; then
+            platform=Linux
+            original_activate_server
+            return
         fi
         [[ "${MOCK_SERVICE_FAILURE:-0}" != 1 ]]
     }
@@ -189,6 +235,21 @@ if [[ "$(uname -s)" == Linux ]]; then
 fi
 unset MOCK_SERVICE_FAILURE
 ok 'Validation and service activation failures restore the exact prior files'
+
+for step in enable restart is-active; do
+    export MOCK_SERVICE_STEP=$step
+    expect_error 'SSH service activation failed:' apply_fixture
+    grep -Fq 'sudo journalctl -u ssh.service' "$root/error" || fail 'Missing service troubleshooting command'
+    if [[ "$step" == is-active ]]; then
+        grep -Fq 'ssh.service is not active after restart' "$root/error" || fail 'Missing inactive service cause'
+    else
+        grep -Fq "systemctl $step ssh.service failed" "$root/error" || fail 'Missing failed service operation'
+    fi
+    cmp "$root/config.expected" "$fixture/sshd_config" || fail 'Service diagnostic changed config rollback'
+    cmp "$root/keys.expected" "$fixture/home/.ssh/authorized_keys" || fail 'Service diagnostic changed key rollback'
+    unset MOCK_SERVICE_STEP
+done
+ok 'Each service activation failure reports its cause and still restores prior files'
 
 printf 'sensitive sentinel\n' > "$fixture/outside"
 chmod 640 "$fixture/outside"

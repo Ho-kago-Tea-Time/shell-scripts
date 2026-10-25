@@ -20,7 +20,8 @@ Supports macOS (built-in Remote Login) and Ubuntu/Debian with systemd.
   --local-address IP      Allowed destination IP; repeat for multiple addresses.
   --remote-address CIDR   Allowed client IP or network; repeat as needed.
   --public-key-file FILE  One OpenSSH public key, without authorized_keys options.
-  --dry-run              Validate inputs and print the plan without writes/sudo.
+  --dry-run              Validate inputs (including the public key) and print
+                         the plan without writes/sudo.
   -h, --help             Show help.
 
 The allowlist applies to ALL SSH logins via sshd Match/DenyUsers rules.
@@ -209,7 +210,23 @@ ensure_server() {
 }
 
 assert_server_files() {
-    [[ -x /usr/sbin/sshd && -f "$sshd_config" && ! -L "$sshd_config" ]] || die 'Expected regular /etc/ssh/sshd_config and /usr/sbin/sshd.'
+    [[ -e /usr/sbin/sshd ]] || die 'SSH server executable is missing: /usr/sbin/sshd. Install or restore the system OpenSSH server.'
+    [[ -f /usr/sbin/sshd && -x /usr/sbin/sshd ]] || die 'SSH server path is not an executable file: /usr/sbin/sshd. Check its file type and permissions.'
+    [[ ! -L "$sshd_config" ]] || die "SSH config is a symbolic link: $sshd_config. A regular config file is required."
+    [[ -e "$sshd_config" ]] || die "SSH config does not exist: $sshd_config. Restore the system SSH config before retrying."
+    [[ -f "$sshd_config" ]] || die "SSH config is not a regular file: $sshd_config"
+    [[ -r "$sshd_config" ]] || die "SSH config is not readable: $sshd_config. Check file and directory permissions."
+}
+
+acquire_lock() {
+    local lock_path=${1:-/etc/ssh/.restricted-openssh.lock}
+    if mkdir -- "$lock_path"; then
+        lock_created=1
+    elif [[ -e "$lock_path" || -L "$lock_path" ]]; then
+        die "SSH configuration lock path already exists: $lock_path. Check for another running instance; remove a stale lock only after confirming none is running."
+    else
+        die "Cannot create SSH configuration lock: $lock_path. Check the mkdir error above for permissions, a read-only filesystem, or insufficient disk space."
+    fi
 }
 
 # Never open, chmod, chown, or restore a user-controlled home path as root.
@@ -300,37 +317,42 @@ USER_KEY_SCRIPT
 }
 
 verify_effective_config() {
-    local config=${1:-$sshd_config} remote local_ip output key_paths value
+    local config=${1:-$sshd_config} remote local_ip output key_paths value context
     for remote in "${remote_addresses[@]}"; do
         remote=${remote%%/*}
         for local_ip in "${local_addresses[@]}"; do
-            output=$(/usr/sbin/sshd -T -f "$config" -C "user=$login_user,host=client.example.com,addr=$remote,laddr=$local_ip,lport=22")
+            context="user=$login_user, source=$remote, destination=$local_ip"
+            output=$(/usr/sbin/sshd -T -f "$config" -C "user=$login_user,host=client.example.com,addr=$remote,laddr=$local_ip,lport=22") || die "Cannot evaluate SSH policy ($context; config: $config). Check the sshd error above."
             value=$(printf '%s\n' "$output" | awk '$1 == "pubkeyauthentication" { print $2 }')
-            [[ "$value" == yes ]] || die 'Existing SSH policy disables public-key authentication.'
+            [[ "$value" == yes ]] || die "SSH policy does not enable public-key authentication ($context; config: $config; PubkeyAuthentication=${value:-<missing>}). Check the matching rules in sshd_config and its Include files."
             key_paths=$(printf '%s\n' "$output" | awk '$1 == "authorizedkeysfile" { $1=""; print }')
             case " $key_paths " in
                 *' .ssh/authorized_keys '*|*' %h/.ssh/authorized_keys '*|*" $authorized_keys "*) ;;
-                *) die 'Existing AuthorizedKeysFile does not use the target ~/.ssh/authorized_keys.' ;;
+                *) die "SSH policy uses an incompatible AuthorizedKeysFile ($context; config: $config; actual:${key_paths:- <missing>}; expected: .ssh/authorized_keys, %h/.ssh/authorized_keys, or $authorized_keys). Check the matching rules in sshd_config and its Include files." ;;
             esac
             # A supplied destination must not be blocked by our own rules.
             if printf '%s\n' "$output" | awk '$1 == "denyusers" { for (i=2; i<=NF; i++) if ($i == "*") found=1 } END { exit !found }'; then
-                die 'Effective sshd policy denies one of the supplied address combinations.'
+                die "SSH policy denies the supplied connection ($context; config: $config; DenyUsers contains '*'). Check the matching DenyUsers rules and the supplied addresses."
             fi
         done
     done
 }
 
+service_activation_failed() {
+    die "SSH service activation failed: $1. Run 'sudo systemctl status ssh.service --no-pager' and 'sudo journalctl -u ssh.service -n 50 --no-pager' to inspect the cause."
+}
+
 activate_server() {
     if [[ "$platform" == Darwin ]]; then
         if ! /bin/launchctl print system/com.openssh.sshd >/dev/null 2>&1; then
-            /usr/sbin/systemsetup -setremotelogin on
+            /usr/sbin/systemsetup -setremotelogin on || die 'Cannot enable Remote Login. Check the systemsetup error above and terminal Full Disk Access, or enable Remote Login in System Settings > General > Sharing, then rerun.'
         fi
         /bin/launchctl print system/com.openssh.sshd >/dev/null || die 'Remote Login did not start. Enable it in System Settings > General > Sharing, then rerun.'
     else
         # Ubuntu may use socket activation: keep its sockets and port settings.
-        systemctl enable ssh.service
-        systemctl restart ssh.service
-        systemctl is-active --quiet ssh.service
+        systemctl enable ssh.service || service_activation_failed 'systemctl enable ssh.service failed'
+        systemctl restart ssh.service || service_activation_failed 'systemctl restart ssh.service failed'
+        systemctl is-active --quiet ssh.service || service_activation_failed 'ssh.service is not active after restart'
     fi
 }
 
@@ -383,8 +405,45 @@ apply_configuration() {
 
 validate_sshd_config() { /usr/sbin/sshd -t -f "${1:-$sshd_config}"; }
 
+validate_public_key() {
+    local key_status key_comment
+    # Report file shape separately without ever printing key material.
+    if public_key=$(awk '
+        { sub(/\r$/, "") }
+        NF {
+            n++
+            if ($0 ~ /^[[:space:]]*-----BEGIN .*PRIVATE KEY-----[[:space:]]*$/) private_key=1
+            if (n == 1) key=$0
+        }
+        END {
+            if (private_key) exit 12
+            if (n == 0) exit 10
+            if (n > 1) exit 11
+            print key
+        }
+    ' "$public_key_file"); then :
+    else
+        key_status=$?
+        case "$key_status" in
+            10) die "Public key file is empty or contains only whitespace: $public_key_file. Supply one OpenSSH public key line." ;;
+            11) die "Public key file contains multiple non-empty lines: $public_key_file. Supply exactly one public key without extra lines." ;;
+            12) die "A private key was supplied: $public_key_file. Use the corresponding .pub public key file; keep the private key on the client." ;;
+            *) die "Cannot read public key file: $public_key_file. Check the error above and file permissions." ;;
+        esac
+    fi
+    IFS=' ' read -r key_type key_data key_comment <<< "$public_key"
+    case "$key_type" in
+        ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521|sk-ssh-ed25519@openssh.com|sk-ecdsa-sha2-nistp256@openssh.com) ;;
+        *'='*|restrict|cert-authority|no-*) die "Public key file contains authorized_keys options: $public_key_file. Supply a plain OpenSSH public key without options." ;;
+        *) die "Unsupported public key format or type in: $public_key_file. Supply a plain OpenSSH public key (Ed25519, RSA, ECDSA, or a supported security-key type) without authorized_keys options." ;;
+    esac
+    [[ "$key_data" =~ ^[A-Za-z0-9+/]+={0,3}$ ]] || die "Malformed public key data in: $public_key_file. Copy the complete, unwrapped line from the client's .pub file."
+    command -v ssh-keygen >/dev/null || die 'Install the OpenSSH client (ssh-keygen) first.'
+    ssh-keygen -lf "$public_key_file" >/dev/null || die "ssh-keygen rejected the public key file: $public_key_file. Check its error above and copy a complete OpenSSH public key line."
+}
+
 main() {
-    local arg address key_comment
+    local arg address
     if [[ "$EUID" == 0 ]]; then PATH=/usr/sbin:/usr/bin:/sbin:/bin; export PATH; fi
     login_user=''; public_key_file=''; dry_run=0
     local_addresses=(); remote_addresses=()
@@ -405,17 +464,23 @@ main() {
             *) die "Unknown argument: $arg" ;;
         esac
     done
-    [[ "$login_user" =~ ^[a-zA-Z_][a-zA-Z0-9_-]*\$?$ && "$login_user" != root ]] || die '--user must name an existing non-root account.'
-    [[ ${#local_addresses[@]} -gt 0 && ${#remote_addresses[@]} -gt 0 && -r "$public_key_file" ]] || die 'Supply --local-address, --remote-address, and a readable --public-key-file.'
+    [[ -n "$login_user" ]] || die 'Missing required --user. Specify an existing non-root account on the target machine.'
+    [[ "$login_user" != root ]] || die '--user cannot be root. Choose an existing non-root account on the target machine.'
+    [[ "$login_user" =~ ^[a-zA-Z_][a-zA-Z0-9_-]*\$?$ ]] || die "Invalid --user format: $login_user. Use letters, digits, underscores, or hyphens; start with a letter or underscore (an optional trailing dollar sign is allowed)."
+    [[ ${#local_addresses[@]} -gt 0 ]] || die 'Missing required --local-address.'
+    [[ ${#remote_addresses[@]} -gt 0 ]] || die 'Missing required --remote-address.'
+    [[ -n "$public_key_file" ]] || die 'Missing required --public-key-file.'
+    if [[ ! -e "$public_key_file" ]]; then
+        if [[ "$public_key_file" == /* ]]; then
+            die "Public key file does not exist: $public_key_file"
+        fi
+        die "Public key file does not exist: $public_key_file (relative to current directory: $PWD)"
+    fi
+    [[ -f "$public_key_file" ]] || die "Public key path is not a regular file: $public_key_file"
+    [[ -r "$public_key_file" ]] || die "Public key file is not readable: $public_key_file (check file and directory permissions)"
     for address in "${local_addresses[@]}"; do validate_address "$address" 0 >/dev/null || die "Invalid destination IP: $address"; done
     for address in "${remote_addresses[@]}"; do validate_address "$address" 1 >/dev/null || die "Invalid client IP/CIDR (use a network address for CIDR): $address"; done
-    # Only a single plain public key is accepted; no options or extra key lines.
-    public_key=$(awk 'NF { sub(/\r$/, ""); if (++n > 1) exit 2; key=$0 } END { if (n == 1) print key; else exit 2 }' "$public_key_file") || die 'Expected exactly one public key.'
-    IFS=' ' read -r key_type key_data key_comment <<< "$public_key"
-    case "$key_type" in ssh-ed25519|ssh-rsa|ecdsa-sha2-nistp256|ecdsa-sha2-nistp384|ecdsa-sha2-nistp521|sk-ssh-ed25519@openssh.com|sk-ecdsa-sha2-nistp256@openssh.com) ;; *) die 'Unsupported public key type or authorized_keys options.' ;; esac
-    [[ "$key_data" =~ ^[A-Za-z0-9+/]+={0,3}$ ]] || die 'Malformed public key.'
-    command -v ssh-keygen >/dev/null || die 'Install the OpenSSH client (ssh-keygen) first.'
-    ssh-keygen -lf "$public_key_file" >/dev/null || die 'ssh-keygen rejected the public key.'
+    validate_public_key
     detect_platform
     if [[ "$dry_run" == 1 ]]; then
         log "Platform: $platform; target account: $login_user"
@@ -435,8 +500,7 @@ main() {
         [[ -x /usr/sbin/runuser ]] || die 'Install util-linux (runuser) before applying configuration.'
     fi
     mkdir -p /etc/ssh
-    mkdir /etc/ssh/.restricted-openssh.lock || die 'Another run holds /etc/ssh/.restricted-openssh.lock; resolve it before retrying.'
-    lock_created=1
+    acquire_lock
     ensure_server
     service_was_active=0
     if [[ "$platform" == Linux ]]; then
