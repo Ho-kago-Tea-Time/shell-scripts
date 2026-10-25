@@ -323,15 +323,17 @@ verify_effective_config() {
         for local_ip in "${local_addresses[@]}"; do
             context="user=$login_user, source=$remote, destination=$local_ip"
             output=$(/usr/sbin/sshd -T -f "$config" -C "user=$login_user,host=client.example.com,addr=$remote,laddr=$local_ip,lport=22") || die "Cannot evaluate SSH policy ($context; config: $config). Check the sshd error above."
-            value=$(printf '%s\n' "$output" | awk '$1 == "pubkeyauthentication" { print $2 }')
+            # Newer OpenSSH dumps use mixed-case directive names. Normalize
+            # only names so case-sensitive paths and other values stay intact.
+            value=$(printf '%s\n' "$output" | awk 'tolower($1) == "pubkeyauthentication" { print $2 }')
             [[ "$value" == yes ]] || die "SSH policy does not enable public-key authentication ($context; config: $config; PubkeyAuthentication=${value:-<missing>}). Check the matching rules in sshd_config and its Include files."
-            key_paths=$(printf '%s\n' "$output" | awk '$1 == "authorizedkeysfile" { $1=""; print }')
+            key_paths=$(printf '%s\n' "$output" | awk 'tolower($1) == "authorizedkeysfile" { $1=""; print }')
             case " $key_paths " in
                 *' .ssh/authorized_keys '*|*' %h/.ssh/authorized_keys '*|*" $authorized_keys "*) ;;
                 *) die "SSH policy uses an incompatible AuthorizedKeysFile ($context; config: $config; actual:${key_paths:- <missing>}; expected: .ssh/authorized_keys, %h/.ssh/authorized_keys, or $authorized_keys). Check the matching rules in sshd_config and its Include files." ;;
             esac
             # A supplied destination must not be blocked by our own rules.
-            if printf '%s\n' "$output" | awk '$1 == "denyusers" { for (i=2; i<=NF; i++) if ($i == "*") found=1 } END { exit !found }'; then
+            if printf '%s\n' "$output" | awk 'tolower($1) == "denyusers" { for (i=2; i<=NF; i++) if ($i == "*") found=1 } END { exit !found }'; then
                 die "SSH policy denies the supplied connection ($context; config: $config; DenyUsers contains '*'). Check the matching DenyUsers rules and the supplied addresses."
             fi
         done

@@ -120,6 +120,32 @@ ok 'Lock creation errors do not falsely imply another running instance'
 )
 ok 'Policy conflict diagnostics identify the connection and effective settings'
 
+(
+    /usr/sbin/sshd() { printf '%s\n' "$mock_policy"; }
+    login_user=demo
+    local_addresses=(192.0.2.10)
+    remote_addresses=(192.0.2.1)
+    # Preserve value case: macOS home paths and account names can contain it.
+    authorized_keys=/Users/Demo/.ssh/authorized_keys
+    for spelling in canonical mixed; do
+        case "$spelling" in
+            canonical) pubkey_option=PubkeyAuthentication; keys_option=AuthorizedKeysFile; deny_option=DenyUsers ;;
+            mixed) pubkey_option=PuBkEyAuThEnTiCaTiOn; keys_option=AuThOrIzEdKeYsFiLe; deny_option=DeNyUsErS ;;
+        esac
+        mock_policy=$(printf '%s yes\n%s %s\n' "$pubkey_option" "$keys_option" "$authorized_keys")
+        verify_effective_config "$root/config"
+        mock_policy=$(printf '%s no\n%s %s\n' "$pubkey_option" "$keys_option" "$authorized_keys")
+        expect_error 'PubkeyAuthentication=no' verify_effective_config "$root/config"
+        mock_policy=$(printf '%s yes\n%s /Users/Other/.ssh/authorized_keys\n' "$pubkey_option" "$keys_option")
+        expect_error 'incompatible AuthorizedKeysFile' verify_effective_config "$root/config"
+        mock_policy=$(printf '%s yes\n%s %s\n%s *\n' "$pubkey_option" "$keys_option" "$authorized_keys" "$deny_option")
+        expect_error 'SSH policy denies the supplied connection' verify_effective_config "$root/config"
+    done
+    mock_policy='AuthorizedKeysFile .ssh/authorized_keys'
+    expect_error 'PubkeyAuthentication=<missing>' verify_effective_config "$root/config"
+) || fail 'Mixed-case sshd policy checks failed'
+ok 'Mixed-case sshd fields preserve key paths and enforce authentication/deny policies'
+
 # A fresh Mac must generate host keys before raw sshd validation, even though
 # the system Remote Login launch wrapper has never generated them yet.
 (
@@ -289,7 +315,7 @@ if [[ -x /usr/sbin/sshd ]]; then
     check_policy() {
         local user=$1 source_ip=$2 target_ip=$3 expect_denied=$4 result
         result=$(/usr/sbin/sshd -T -f "$root/real-config" -C "user=$user,host=client.example.com,addr=$source_ip,laddr=$target_ip,lport=22")
-        if printf '%s\n' "$result" | awk '$1 == "denyusers" { for (i=2; i<=NF; i++) if ($i == "*") found=1 } END { exit !found }'; then
+        if printf '%s\n' "$result" | awk 'tolower($1) == "denyusers" { for (i=2; i<=NF; i++) if ($i == "*") found=1 } END { exit !found }'; then
             [[ "$expect_denied" == 1 ]] || fail 'Allowed connection was denied'
         else [[ "$expect_denied" == 0 ]] || fail 'Disallowed connection was accepted'; fi
     }
