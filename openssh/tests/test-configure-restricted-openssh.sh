@@ -143,16 +143,18 @@ remote_addresses=(192.0.2.1 198.51.100.0/24 2001:db8:1::/64)
     }
     # Deterministically replace a path after snapshot/preflight, immediately
     # before the install operation. The original root path writes followed it.
-    eval "$(declare -f user_key_task | sed '1s/user_key_task/original_user_key_task/')"
-    user_key_task() {
-        if [[ "$1" == install && "${MOCK_INSTALL_LINK:-0}" == 1 ]]; then
+    # Wrap the privilege boundary instead of re-evaluating user_key_task's
+    # heredoc: Bash 3.2's declare -f cannot round-trip that function reliably.
+    eval "$(declare -f run_as_target_user | sed '1s/run_as_target_user/original_run_as_target_user/')"
+    run_as_target_user() {
+        if [[ "${5:-}" == install && "${MOCK_INSTALL_LINK:-0}" == 1 ]]; then
             rm -f "$authorized_keys"
             ln -s "$fixture/outside" "$authorized_keys"
-        elif [[ "$1" == install && "${MOCK_DIRECTORY_LINK:-0}" == 1 ]]; then
+        elif [[ "${5:-}" == install && "${MOCK_DIRECTORY_LINK:-0}" == 1 ]]; then
             mv "$ssh_dir" "$fixture/saved-ssh"
             ln -s "$fixture/outside-dir" "$ssh_dir"
         fi
-        original_user_key_task "$@"
+        original_run_as_target_user "$@"
     }
     trap cleanup EXIT
     apply_configuration

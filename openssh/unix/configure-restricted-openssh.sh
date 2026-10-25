@@ -228,7 +228,9 @@ run_as_target_user() {
 user_key_task() {
     local task=$1 code
     shift
-    code=$(cat <<'USER_KEY_SCRIPT'
+    # Bash 3.2 can misparse case patterns inside a heredoc within $(...).
+    # Read the literal payload directly; EOF without a NUL is expected.
+    IFS= read -r -d '' code <<'USER_KEY_SCRIPT' || true
 set -eo pipefail
 umask 077
 task=$1; platform=$2; home=$3; shift 3
@@ -294,7 +296,6 @@ case "$task" in
     *) fail 'Unknown user-key operation.' ;;
 esac
 USER_KEY_SCRIPT
-)
     run_as_target_user /bin/bash -c "$code" -- "$task" "$platform" "$user_home" "$@"
 }
 
