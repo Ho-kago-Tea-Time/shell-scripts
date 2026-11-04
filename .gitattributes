@@ -1,3 +1,6 @@
 *.sh text eol=lf
 *.md text eol=lf
 
+# Preserve the downloaded OpenClaw snapshot byte-for-byte for SHA-256 checks.
+openclaw/windows/upstream/install.ps1 -text
+openclaw/windows/upstream/LICENSE -text

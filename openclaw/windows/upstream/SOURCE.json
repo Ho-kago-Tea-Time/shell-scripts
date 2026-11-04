@@ -1,0 +1,36 @@
+{
+  "project": "OpenClaw",
+  "authors": "OpenClaw project contributors; no separate author notice in install.ps1",
+  "license": "MIT",
+  "copyright": "Copyright (c) 2026 OpenClaw Foundation",
+  "verified_at_utc": "2026-11-04T13:51:53Z",
+  "documentation_url": "https://docs.openclaw.ai/install/installer",
+  "repository_url": "https://github.com/openclaw/openclaw",
+  "snapshot_commit": "6210f1275c4f7b30bb72fbbc28ef59874ea444cf",
+  "snapshot_commit_date_utc": "2026-11-04T13:46:54Z",
+  "script_last_change_commit": "6c4a948c3049f379007fc7702faf42f3cea8558f",
+  "script_last_change_date_utc": "2026-10-30T01:21:16Z",
+  "script": {
+    "file": "install.ps1",
+    "download_url": "https://openclaw.ai/install.ps1",
+    "final_download_url": "https://openclaw.ai/install.ps1",
+    "http_status": 200,
+    "website_etag": "W/\"fa9696e9fe40476936d389dba899c392\"",
+    "website_last_modified_utc": "2026-11-04T08:13:29Z",
+    "immutable_source_url": "https://raw.githubusercontent.com/openclaw/openclaw/6210f1275c4f7b30bb72fbbc28ef59874ea444cf/scripts/install.ps1",
+    "git_blob_sha1": "b037ad6ff5f8577f9fd1a8dfe84d761f3bab0d8c",
+    "sha256": "39854b15b78039ae7d36d523ba57bb9f13c1b8900684d87371f79a277642f217",
+    "website_sha256": "39854b15b78039ae7d36d523ba57bb9f13c1b8900684d87371f79a277642f217",
+    "source_sha256": "39854b15b78039ae7d36d523ba57bb9f13c1b8900684d87371f79a277642f217",
+    "bytes": 104073,
+    "encoding": "UTF-8 without BOM, LF",
+    "website_matches_source_bytes": true
+  },
+  "license_file": {
+    "file": "LICENSE",
+    "immutable_source_url": "https://raw.githubusercontent.com/openclaw/openclaw/6210f1275c4f7b30bb72fbbc28ef59874ea444cf/LICENSE",
+    "sha256": "9efd316ecf1c4c60f6fd5d26433142fff2b6794d7d328e9bc6179b29bf9c82a4"
+  },
+  "provenance_scope": "Website bytes equal the immutable source at the snapshot commit and the script last-change commit. Equality does not prove the website deployment revision. This pins the installer, not the OpenClaw application or its dependencies.",
+  "local_modifications": []
+}
