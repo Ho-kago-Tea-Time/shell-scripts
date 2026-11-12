@@ -8,10 +8,16 @@
 - [openssh/](./openssh/README.zh-CN.md)：初始化 Windows、macOS、Ubuntu/Debian 的 SSH 服务端、公钥及访问白名单。
 - [git/](./git/README.zh-CN.md)：生成或复用 SSH 密钥，并添加到 GitHub、GitLab 官方站或自建实例；提供 Windows 和 macOS/Linux 入口，可选配置 SSH 别名。
 - [openclaw/](./openclaw/README.zh-CN.md)：固定收录官方 Windows 安装脚本，记录来源，并说明如何从已有本地源码仓库安装。
+- [hyper-v/](./hyper-v/README.zh-CN.md)：管理本机 Hyper-V 虚拟机启停、保存状态和检查点（快照），支持预演与确认。
 
 ## 目录结构
 
 ```text
+hyper-v/
+  windows/Manage-HyperV.ps1
+  tests/Test-HyperVManager.ps1
+  README.md
+  README.zh-CN.md
 openclaw/
   windows/upstream/install.ps1
   windows/upstream/LICENSE

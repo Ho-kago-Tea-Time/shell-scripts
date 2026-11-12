@@ -10,10 +10,16 @@ Chinese version: [README.zh-CN.md](./README.zh-CN.md)
 - [openssh/](./openssh/README.md): initialize SSH servers, public keys, and access allowlists on Windows, macOS, and Ubuntu/Debian.
 - [git/](./git/README.md): create/reuse SSH keys and register them with GitHub or GitLab (official or self-hosted), with Windows and macOS/Linux entry points and optional SSH aliases.
 - [openclaw/](./openclaw/README.md): pinned, unmodified official Windows installer, provenance, and instructions for installing an existing source checkout.
+- [hyper-v/](./hyper-v/README.md): manage local Hyper-V VM power, saved states, and checkpoints with previews and confirmation.
 
 ## Layout
 
 ```text
+hyper-v/
+  windows/Manage-HyperV.ps1
+  tests/Test-HyperVManager.ps1
+  README.md
+  README.zh-CN.md
 openclaw/
   windows/upstream/install.ps1
   windows/upstream/LICENSE
