@@ -1,9 +1,10 @@
 # Shell Scripts
 
-这个仓库用于存放可复用的 Shell 脚本和系统自动化辅助工具。
+这个仓库用于存放可独立运行的常用脚本，包括系统自动化辅助工具。
 
 ## 脚本
 
+- [agent-guidance/](./agent-guidance/README.zh-CN.md)：安装并调用独立的跨节点代理指令技能，提供 Windows、macOS/Linux 离线入口。
 - [docker/linux/docker-manager.sh](./docker/linux/docker-manager.sh): 安装和卸载 Docker Engine、Docker Buildx 与 Docker Compose plugin。当前优先支持 Ubuntu，同时通过 adapter 结构预留了兼容其他主流 Linux 发行版的空间。
 - [openssh/](./openssh/README.zh-CN.md)：初始化 Windows、macOS、Ubuntu/Debian 的 SSH 服务端、公钥及访问白名单。
 - [git/](./git/README.zh-CN.md)：生成或复用 SSH 密钥，并添加到 GitHub、GitLab 官方站或自建实例；提供 Windows 和 macOS/Linux 入口，可选配置 SSH 别名。
@@ -13,6 +14,12 @@
 ## 目录结构
 
 ```text
+agent-guidance/
+  windows/Invoke-AgentGuidance.ps1
+  unix/agent-guidance.sh
+  tests/entrypoints.test.mjs
+  README.md
+  README.zh-CN.md
 hyper-v/
   windows/Manage-HyperV.ps1
   tests/Test-HyperVManager.ps1

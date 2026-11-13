@@ -1,11 +1,12 @@
 # Shell Scripts
 
-Reusable shell scripts and system automation helpers.
+Independently runnable scripts for common tasks, including system automation.
 
 Chinese version: [README.zh-CN.md](./README.zh-CN.md)
 
 ## Scripts
 
+- [agent-guidance/](./agent-guidance/README.md): offline Windows and macOS/Linux entry points to install and run the standalone shared agent-guidance skill.
 - [docker/linux/docker-manager.sh](./docker/linux/docker-manager.sh): install and uninstall Docker Engine, Docker Buildx, and Docker Compose plugin on Ubuntu today, with adapter-based room for other mainstream Linux distributions.
 - [openssh/](./openssh/README.md): initialize SSH servers, public keys, and access allowlists on Windows, macOS, and Ubuntu/Debian.
 - [git/](./git/README.md): create/reuse SSH keys and register them with GitHub or GitLab (official or self-hosted), with Windows and macOS/Linux entry points and optional SSH aliases.
@@ -15,6 +16,12 @@ Chinese version: [README.zh-CN.md](./README.zh-CN.md)
 ## Layout
 
 ```text
+agent-guidance/
+  windows/Invoke-AgentGuidance.ps1
+  unix/agent-guidance.sh
+  tests/entrypoints.test.mjs
+  README.md
+  README.zh-CN.md
 hyper-v/
   windows/Manage-HyperV.ps1
   tests/Test-HyperVManager.ps1
